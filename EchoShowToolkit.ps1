@@ -62,12 +62,13 @@ while ($true) {
     Write-Host "3 - Install APK"
     Write-Host "4 - Install F-Droid"
     Write-Host "5 - Install ViewAssist"
-    Write-Host "6 - Apply LineageOS Tweaks"
-    Write-Host "7 - Apply Home Assistant Tweaks"
-    Write-Host "8 - Apply Screen/Doze Tweaks"
-    Write-Host "9 - Reconnect ADB WiFi"
-    Write-Host "10 - Open LineageOS download page"
-    Write-Host "11 - Push LineageOS ZIP to device"
+    Write-Host "6 - Install Home Assistant"
+    Write-Host "7 - Apply LineageOS Tweaks"
+    Write-Host "8 - Apply Home Assistant Tweaks"
+    Write-Host "9 - Apply Screen/Doze Tweaks"
+    Write-Host "10 - Reconnect ADB WiFi"
+    Write-Host "11 - Open LineageOS download page"
+    Write-Host "12 - Push LineageOS ZIP to device"
     Write-Host "Q - Exit"
 
     $Choice = Read-Host "Select"
@@ -95,27 +96,31 @@ while ($true) {
         }
 
         "6" {
-            Apply-LineageTweaks
+            Install-HomeAssistant
         }
 
         "7" {
-            Apply-HomeAssistantTweaks
+            Apply-LineageTweaks
         }
 
         "8" {
-            Apply-ScreenTweaks
+            Apply-HomeAssistantTweaks
         }
 
         "9" {
-            Connect-AdbWifi
+            Apply-ScreenTweaks
         }
 
         "10" {
+            Connect-AdbWifi
+        }
+
+        "11" {
             Open-LineageDownloadPage
         }
 
 
-        "11" {
+        "12" {
             Push-LineageZip
         }
 
