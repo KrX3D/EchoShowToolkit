@@ -1,33 +1,60 @@
+function Get-Config {
+
+
+    $Config =
+        Join-Path $PSScriptRoot "..\Config.json"
+
+
+    return Get-Content $Config | ConvertFrom-Json
+
+}
+
+
+
+function Cleanup-InstallFiles {
+
+
+    $Config = Get-Config
+
+
+    if ($Config.CleanupAfterInstall -ne $true) {
+        return
+    }
+
+
+    Write-Host ""
+    Write-Host "Cleaning device download folder..."
+
+
+    Invoke-Adb "shell rm /sdcard/Download/*.apk"
+    Invoke-Adb "shell rm /sdcard/Download/*.bin"
+
+}
+
+
+
 function Install-Apk {
+
 
     Write-Host ""
     Write-Host "APK Installation" -ForegroundColor Cyan
-    Write-Host ""
 
-    $Apk = Read-Host "Enter APK path"
 
-    if (-not (Test-Path $Apk)) {
+    $APK = Read-Host "APK path"
+
+
+    if (-not (Test-Path $APK)) {
 
         Write-Host "File not found." -ForegroundColor Red
         return
     }
 
 
-    if ([System.IO.Path]::GetExtension($Apk) -ne ".apk") {
-
-        Write-Host "File is not an APK." -ForegroundColor Red
-        return
-    }
-
-
-    Write-Host ""
-    Write-Host "Installing APK..."
-    Write-Host ""
-
-
     $Adb = Get-AdbPath
 
-    $Result = & $Adb install -r "$Apk" 2>&1
+
+    $Result =
+        & $Adb install -r "$APK" 2>&1
 
 
     if ($LASTEXITCODE -eq 0) {
@@ -35,49 +62,33 @@ function Install-Apk {
         Write-Host ""
         Write-Host "Installation successful." -ForegroundColor Green
 
-
-        $Clean = Read-Host "Remove old APK files from device? (Y/N)"
-
-        if ($Clean -match "^[Yy]$") {
-
-            Invoke-Adb "shell rm /sdcard/Download/*.apk"
-            Invoke-Adb "shell rm /sdcard/Download/*.bin"
-
-        }
+        Cleanup-InstallFiles
 
         return
     }
 
 
     Write-Host ""
-    Write-Host "Installation failed:" -ForegroundColor Red
-    Write-Host $Result
+    Write-Host $Result -ForegroundColor Red
 
 
     if ($Result -match "INSUFFICIENT_STORAGE") {
 
+
         Write-Host ""
-        Write-Host "Not enough storage." -ForegroundColor Yellow
+        Write-Host "Cleaning cache..."
 
-        $Clean = Read-Host "Run storage cleanup and retry? (Y/N)"
 
-        if ($Clean -match "^[Yy]$") {
+        Invoke-Adb "shell pm trim-caches 2G"
 
-            Invoke-Adb "shell pm trim-caches 2G"
+
+        $Retry =
+            Read-Host "Retry installation? (Y/N)"
+
+
+        if ($Retry -match "^[Yy]$") {
 
             Install-Apk
-        }
-    }
-
-
-    if ($Result -match "VERSION_DOWNGRADE") {
-
-        Write-Host ""
-        $Downgrade = Read-Host "Force downgrade install? (Y/N)"
-
-        if ($Downgrade -match "^[Yy]$") {
-
-            & $Adb install -r -d "$Apk"
         }
     }
 
@@ -87,54 +98,114 @@ function Install-Apk {
 
 function Install-FDroid {
 
+
+    $Config = Get-Config
+
+
+    $Target =
+        Join-Path $env:TEMP "F-Droid.apk"
+
+
     Write-Host ""
-    Write-Host "Installing F-Droid" -ForegroundColor Cyan
-
-
-    $Url = "https://f-droid.org/F-Droid.apk"
-
-    $Temp = Join-Path $env:TEMP "F-Droid.apk"
+    Write-Host "Downloading F-Droid..." -ForegroundColor Cyan
 
 
     Invoke-WebRequest `
-        -Uri $Url `
-        -OutFile $Temp
+        -Uri $Config."F-DroidUrl" `
+        -OutFile $Target
 
-
-    Install-APKFile $Temp
-
-
-    Remove-Item $Temp -Force
-}
-
-
-
-function Install-APKFile {
-
-    param(
-        [string]$File
-    )
 
 
     $Adb = Get-AdbPath
 
-    & $Adb install -r "$File"
+
+    & $Adb install -r "$Target"
+
+
+
+    Remove-Item $Target -Force
+
+
+    Cleanup-InstallFiles
+
 }
 
 
 
 function Install-ViewAssist {
 
-    Write-Host ""
-    Write-Host "ViewAssist installation" -ForegroundColor Cyan
+
+    $Config = Get-Config
+
 
     Write-Host ""
-    Write-Host "Download latest release manually:"
-    Write-Host ""
-    Write-Host "https://github.com/msp1974/ViewAssist_Companion_App"
-    Write-Host ""
+    Write-Host "Checking latest ViewAssist release..." -ForegroundColor Cyan
 
-    Write-Host "After downloading the APK:"
-    
-    Install-Apk
+
+    $Release =
+        Invoke-RestMethod `
+        -Uri $Config.ViewAssist.GitHubApi `
+        -Headers @{
+            "User-Agent"="EchoShowToolkit"
+        }
+
+
+    $APKAsset =
+        $Release.assets |
+        Where-Object {
+            $_.name -match "\.apk$"
+        } |
+        Select-Object -First 1
+
+
+
+    if (-not $APKAsset) {
+
+        Write-Host "No APK found."
+        return
+    }
+
+
+
+    Write-Host ""
+    Write-Host "Latest:"
+    Write-Host $APKAsset.name
+
+
+
+    $Target =
+        Join-Path $env:TEMP $APKAsset.name
+
+
+
+    Write-Host ""
+    Write-Host "Downloading..."
+
+
+    Invoke-WebRequest `
+        -Uri $APKAsset.browser_download_url `
+        -OutFile $Target
+
+
+
+    $Adb = Get-AdbPath
+
+
+    Write-Host ""
+    Write-Host "Installing ViewAssist..."
+
+
+    & $Adb install -r "$Target"
+
+
+
+    Remove-Item $Target -Force
+
+
+    Cleanup-InstallFiles
+
+
+    Write-Host ""
+    Write-Host "ViewAssist installed." -ForegroundColor Green
+
 }
