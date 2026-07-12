@@ -1,14 +1,6 @@
 function Get-EchoDevice {
 
-    $Adb = Get-AdbPath
-
-    if (-not $Adb) {
-        return $null
-    }
-
-
-    $Devices = & $Adb devices
-
+    $Devices = Invoke-Adb "devices"
 
     $Connected = $Devices |
         Where-Object {
@@ -19,13 +11,13 @@ function Get-EchoDevice {
     if (-not $Connected) {
 
         Write-Host ""
-        Write-Host "No authorized ADB device found." -ForegroundColor Red
+        Write-Host "No authorized device found." -ForegroundColor Red
+
         Write-Host ""
-        Write-Host "Possible reasons:"
-        Write-Host "- USB debugging disabled"
-        Write-Host "- Device not authorized"
-        Write-Host "- Wrong USB cable"
-        Write-Host "- ADB WiFi not connected"
+        Write-Host "Check:"
+        Write-Host "- USB debugging enabled"
+        Write-Host "- Accept RSA prompt on Echo"
+        Write-Host "- USB cable"
 
         return $null
     }
@@ -47,56 +39,99 @@ function Get-AdbProperty {
 
 
 
-function Show-DeviceInfo {
+function Get-EchoCodename {
 
-    param(
-        $Device
-    )
+    $Device = Get-AdbProperty "ro.product.device"
+
+    return $Device.Trim()
+}
+
+
+
+function Get-LineageInfo {
+
+
+    $Codename = Get-EchoCodename
+
+
+    $ConfigPath = Join-Path $PSScriptRoot "..\Config.json"
+
+    $Config = Get-Content $ConfigPath | ConvertFrom-Json
+
+
+    $DeviceConfig =
+        $Config.LineageDevices.$Codename
+
+
+    return $DeviceConfig
+}
+
+
+
+function Show-DeviceInfo {
 
 
     Write-Host ""
     Write-Host "Device Information" -ForegroundColor Cyan
-    Write-Host "--------------------------------"
+    Write-Host "----------------------------"
 
 
-    $Model = Get-AdbProperty "ro.product.model"
-    $DeviceName = Get-AdbProperty "ro.product.device"
-    $Android = Get-AdbProperty "ro.build.version.release"
-    $Lineage = Get-AdbProperty "ro.lineage.version"
+    $Model =
+        Get-AdbProperty "ro.product.model"
+
+
+    $Codename =
+        Get-AdbProperty "ro.product.device"
+
+
+    $Android =
+        Get-AdbProperty "ro.build.version.release"
+
+
+    $Lineage =
+        Get-AdbProperty "ro.lineage.version"
 
 
     Write-Host "Model:"
-    Write-Host $Model
+    Write-Host $Model.Trim()
 
     Write-Host ""
 
     Write-Host "Codename:"
-    Write-Host $DeviceName
+    Write-Host $Codename.Trim()
 
     Write-Host ""
 
     Write-Host "Android:"
-    Write-Host $Android
+    Write-Host $Android.Trim()
 
     Write-Host ""
 
     Write-Host "LineageOS:"
-    Write-Host $Lineage
+    Write-Host $Lineage.Trim()
 
 
-    Write-Host ""
+    $LineageInfo = Get-LineageInfo
+
+
+    if ($LineageInfo) {
+
+        Write-Host ""
+        Write-Host "Supported device:"
+        Write-Host $LineageInfo.Name -ForegroundColor Green
+    }
+
 }
 
 
 
 function Get-DeviceStorage {
 
-    Write-Host ""
-    Write-Host "Storage information" -ForegroundColor Cyan
-
-    $Storage = Invoke-Adb "shell df -h /data"
 
     Write-Host ""
+    Write-Host "Storage:" -ForegroundColor Cyan
 
-    $Storage
+
+    Invoke-Adb "shell df -h /data"
+
 }
