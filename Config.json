@@ -1,0 +1,6 @@
+{
+    "F-DroidUrl": "https://f-droid.org/F-Droid.apk",
+    "ViewAssistUrl": "https://github.com/msp1974/ViewAssist_Companion_App",
+    "DeleteInstallerAfterInstall": true,
+    "DownloadFolder": "/sdcard/Download"
+}
