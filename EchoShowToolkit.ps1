@@ -21,7 +21,8 @@ $Modules = @(
     "Device.psm1",
     "Installer.psm1",
     "Cleanup.psm1",
-    "Tweaks.psm1"
+    "Tweaks.psm1",
+    "Lineage.psm1"
 )
 
 foreach ($Module in $Modules) {
@@ -65,6 +66,8 @@ while ($true) {
     Write-Host "7 - Apply Home Assistant Tweaks"
     Write-Host "8 - Apply Screen/Doze Tweaks"
     Write-Host "9 - Reconnect ADB WiFi"
+    Write-Host "10 - Open LineageOS download page"
+    Write-Host "11 - Push LineageOS ZIP to device"
     Write-Host "Q - Exit"
 
     $Choice = Read-Host "Select"
@@ -105,6 +108,15 @@ while ($true) {
 
         "9" {
             Connect-AdbWifi
+        }
+
+        "10" {
+            Open-LineageDownloadPage
+        }
+
+
+        "11" {
+            Push-LineageZip
         }
 
         "Q" {
