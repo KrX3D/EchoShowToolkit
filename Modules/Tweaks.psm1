@@ -1,13 +1,39 @@
-function Invoke-TweakCommand {
+function Invoke-Tweak {
+
 
     param(
         [string]$Command
     )
 
+
     Write-Host ""
-    Write-Host $Command
+    Write-Host "Running:"
+    Write-Host $Command -ForegroundColor Cyan
+
 
     Invoke-Adb "shell $Command"
+}
+
+
+
+function Ask-Tweak {
+
+
+    param(
+        [string]$Name,
+        [string]$Command
+    )
+
+
+    $Answer =
+        Read-Host "$Name? (Y/N)"
+
+
+
+    if ($Answer -match "^[Yy]$") {
+
+        Invoke-Tweak $Command
+    }
 }
 
 
@@ -20,56 +46,51 @@ function Apply-LineageTweaks {
     Write-Host ""
 
 
-    $Options = @(
-        @{
-            Name="Disable Contacts"
-            Cmd="pm disable-user com.android.contacts"
-        },
-        @{
-            Name="Disable Recorder"
-            Cmd="pm disable-user org.lineageos.recorder"
-        },
-        @{
-            Name="Disable Calculator"
-            Cmd="pm disable-user com.android.calculator2"
-        },
-        @{
-            Name="Disable Music"
-            Cmd="pm disable-user org.lineageos.eleven"
-        },
-        @{
-            Name="Disable Calendar"
-            Cmd="pm disable-user org.lineageos.etar"
-        }
-    )
+
+    Ask-Tweak `
+        "Disable Contacts" `
+        "pm disable-user com.android.contacts"
 
 
-    foreach ($Option in $Options) {
 
-        $Answer = Read-Host "$($Option.Name)? (Y/N)"
-
-        if ($Answer -match "^[Yy]$") {
-
-            Invoke-TweakCommand $Option.Cmd
-        }
-    }
+    Ask-Tweak `
+        "Disable Recorder" `
+        "pm disable-user org.lineageos.recorder"
 
 
-    $Timeout = Read-Host "Set screen timeout to 30 minutes? (Y/N)"
 
-    if ($Timeout -match "^[Yy]$") {
-
-        Invoke-TweakCommand "settings put system screen_off_timeout 1800000"
-    }
+    Ask-Tweak `
+        "Disable Calculator" `
+        "pm disable-user com.android.calculator2"
 
 
-    $Dark = Read-Host "Enable dark mode? (Y/N)"
 
-    if ($Dark -match "^[Yy]$") {
+    Ask-Tweak `
+        "Disable Music Player" `
+        "pm disable-user org.lineageos.eleven"
 
-        Invoke-TweakCommand "cmd uimode night yes"
-    }
 
+
+    Ask-Tweak `
+        "Disable Calendar" `
+        "pm disable-user org.lineageos.etar"
+
+
+
+    Ask-Tweak `
+        "Set screen timeout to 30 minutes" `
+        "settings put system screen_off_timeout 1800000"
+
+
+
+    Ask-Tweak `
+        "Enable Dark Mode" `
+        "cmd uimode night yes"
+
+
+
+    Write-Host ""
+    Write-Host "LineageOS tweaks finished." -ForegroundColor Green
 }
 
 
@@ -78,26 +99,35 @@ function Apply-HomeAssistantTweaks {
 
 
     Write-Host ""
-    Write-Host "Home Assistant Tweaks" -ForegroundColor Cyan
+    Write-Host "Home Assistant Companion Tweaks" -ForegroundColor Cyan
+    Write-Host ""
 
 
-    $Overlay = Read-Host "Allow SYSTEM_ALERT_WINDOW? (Y/N)"
 
-    if ($Overlay -match "^[Yy]$") {
-
-        Invoke-TweakCommand `
-        "appops set io.homeassistant.companion.android.minimal SYSTEM_ALERT_WINDOW allow"
-    }
+    $Config =
+        Get-ToolkitConfig
 
 
-    $Whitelist = Read-Host "Add Home Assistant to device idle whitelist? (Y/N)"
 
-    if ($Whitelist -match "^[Yy]$") {
+    $Package =
+        $Config.HomeAssistant.PackageName
 
-        Invoke-TweakCommand `
-        "dumpsys deviceidle whitelist +io.homeassistant.companion.android.minimal"
-    }
 
+
+    Ask-Tweak `
+        "Allow overlay notifications" `
+        "appops set $Package SYSTEM_ALERT_WINDOW allow"
+
+
+
+    Ask-Tweak `
+        "Whitelist Home Assistant from Doze" `
+        "dumpsys deviceidle whitelist +$Package"
+
+
+
+    Write-Host ""
+    Write-Host "Home Assistant tweaks finished." -ForegroundColor Green
 }
 
 
@@ -106,29 +136,59 @@ function Apply-ScreenTweaks {
 
 
     Write-Host ""
-    Write-Host "Screen / Doze Tweaks" -ForegroundColor Cyan
+    Write-Host "Screen / Kiosk Tweaks" -ForegroundColor Cyan
+    Write-Host ""
 
 
-    $Commands = @(
-        "settings put secure screensaver_enabled 0",
-        "settings put secure screensaver_activate_on_sleep 0",
-        "settings put secure screensaver_activate_on_dock 0",
-        "settings put secure doze_enabled 0",
-        "settings put secure doze_always_on 0",
-        "settings put secure doze_pulse_on_pick_up 0",
-        "settings put secure doze_pulse_on_double_tap 0",
+
+    Ask-Tweak `
+        "Disable screensaver" `
+        "settings put secure screensaver_enabled 0"
+
+
+
+    Ask-Tweak `
+        "Disable screensaver on sleep" `
+        "settings put secure screensaver_activate_on_sleep 0"
+
+
+
+    Ask-Tweak `
+        "Disable screensaver on dock" `
+        "settings put secure screensaver_activate_on_dock 0"
+
+
+
+    Ask-Tweak `
+        "Disable Doze" `
+        "settings put secure doze_enabled 0"
+
+
+
+    Ask-Tweak `
+        "Disable Always On Doze" `
+        "settings put secure doze_always_on 0"
+
+
+
+    Ask-Tweak `
+        "Disable pickup pulse" `
+        "settings put secure doze_pulse_on_pick_up 0"
+
+
+
+    Ask-Tweak `
+        "Disable double tap pulse" `
+        "settings put secure doze_pulse_on_double_tap 0"
+
+
+
+    Ask-Tweak `
+        "Disable lockscreen" `
         "locksettings set-disabled true"
-    )
 
 
-    foreach ($Cmd in $Commands) {
 
-        $Answer = Read-Host "Apply '$Cmd'? (Y/N)"
-
-        if ($Answer -match "^[Yy]$") {
-
-            Invoke-TweakCommand $Cmd
-        }
-    }
-
+    Write-Host ""
+    Write-Host "Screen tweaks finished." -ForegroundColor Green
 }
