@@ -1,31 +1,35 @@
 {
-    "F-DroidUrl": "https://f-droid.org/F-Droid.apk",
+    "CleanupAfterInstall": true,
+
+    "HomeAssistant": {
+        "PackageName": "io.homeassistant.companion.android.minimal",
+        "GitHubApi": "https://api.github.com/repos/home-assistant/android/releases/latest"
+    },
 
     "ViewAssist": {
+        "PackageName": "com.viewassist",
         "GitHubApi": "https://api.github.com/repos/msp1974/ViewAssist_Companion_App/releases/latest"
     },
 
-    "HomeAssistant": {
-        "PackageName": "io.homeassistant.companion.android.minimal"
+    "FDroid": {
+        "PackageName": "org.fdroid.fdroid",
+        "DownloadUrl": "https://f-droid.org/F-Droid.apk"
     },
 
-    "DownloadFolder": "/sdcard/Download",
-
-    "CleanupAfterInstall": true,
-
     "LineageDevices": {
+
         "checkers": {
-            "Name": "Echo Show 5 Gen 1",
+            "Name": "Echo Show 5 Gen 1 (Checkers)",
             "XdaUrl": "https://xdaforums.com/t/rom-unofficial-11-checkers-lineageos-18-1-for-the-amazon-echo-show-5-2019.4763475/"
         },
 
         "cronos": {
-            "Name": "Echo Show 5 Gen 2",
+            "Name": "Echo Show 5 Gen 2 (Cronos)",
             "XdaUrl": "https://xdaforums.com/t/rom-unofficial-11-cronos-lineageos-18-1-for-the-amazon-echo-show-5-2021.4772598/"
         },
 
         "crown": {
-            "Name": "Echo Show 8 Gen 1",
+            "Name": "Echo Show 8 Gen 1 (Crown)",
             "XdaUrl": "https://xdaforums.com/t/rom-unofficial-11-crown-lineageos-18-1-for-the-amazon-echo-show-8-2019.4766709/"
         }
     }
