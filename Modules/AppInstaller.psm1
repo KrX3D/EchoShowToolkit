@@ -1,64 +1,99 @@
-function Get-Config {
+function Get-ToolkitConfig {
 
-    $Config =
-        Join-Path $PSScriptRoot "..\Config.json"
+    $Path = Join-Path $PSScriptRoot "..\Config.json"
 
-    return Get-Content $Config | ConvertFrom-Json
+    return Get-Content $Path -Raw | ConvertFrom-Json
 }
 
 
 
-function Cleanup-InstallFiles {
+function Get-InstalledVersion {
 
-    $Config = Get-Config
+    param(
+        [string]$Package
+    )
 
-    if ($Config.CleanupAfterInstall -ne $true) {
-        return
+
+    $Result = Invoke-Adb "shell dumpsys package $Package"
+
+
+    if ($Result -match "versionName=([^\s]+)") {
+
+        return $Matches[1]
     }
 
-    Write-Host ""
-    Write-Host "Cleaning temporary APK files..."
 
-    Invoke-Adb "shell rm /sdcard/Download/*.apk"
-    Invoke-Adb "shell rm /sdcard/Download/*.bin"
+    return $null
 }
 
 
 
-function Install-Apk {
+function Test-AppInstalled {
 
-    Write-Host ""
-    Write-Host "APK Installation" -ForegroundColor Cyan
+    param(
+        [string]$Package
+    )
 
-    $APK = Read-Host "APK path"
+
+    $Result = Invoke-Adb "shell pm list packages $Package"
 
 
-    if (-not (Test-Path $APK)) {
+    return ($Result -match $Package)
+}
 
-        Write-Host "File not found." -ForegroundColor Red
-        return
+
+
+function Compare-AppVersion {
+
+    param(
+        [string]$Installed,
+        [string]$Latest
+    )
+
+
+    if (-not $Installed) {
+        return $true
     }
+
+
+    try {
+
+        return ([version]$Latest -gt [version]$Installed)
+
+    }
+    catch {
+
+        return $true
+    }
+}
+
+
+
+function Install-DownloadedApk {
+
+    param(
+        [string]$File
+    )
 
 
     $Adb = Get-AdbPath
 
 
     Write-Host ""
-    Write-Host "Installing..."
+    Write-Host "Installing $File ..." -ForegroundColor Cyan
 
-    $Result =
-        & $Adb install -r "$APK" 2>&1
+
+    $Result = & $Adb install -r "$File" 2>&1
 
 
 
     if ($LASTEXITCODE -eq 0) {
 
-        Write-Host ""
         Write-Host "Installation successful." -ForegroundColor Green
 
-        Cleanup-InstallFiles
+        Cleanup-DeviceFiles
 
-        return
+        return $true
     }
 
 
@@ -66,98 +101,81 @@ function Install-Apk {
     Write-Host $Result -ForegroundColor Red
 
 
-
     if ($Result -match "INSUFFICIENT_STORAGE") {
 
         Write-Host ""
-        Write-Host "Not enough storage." -ForegroundColor Yellow
-
+        Write-Host "Storage full. Cleaning cache..."
 
         Invoke-Adb "shell pm trim-caches 2G"
-
-
-        $Retry =
-            Read-Host "Retry installation? (Y/N)"
-
-
-        if ($Retry -match "^[Yy]$") {
-
-            Install-Apk
-        }
     }
 
+
+    return $false
 }
 
 
 
-function Install-FDroid {
+function Download-And-Install {
+
+    param(
+        [string]$Url,
+        [string]$Name
+    )
 
 
-    $Config = Get-Config
-
-
-    $Target =
-        Join-Path $env:TEMP "F-Droid.apk"
+    $Target = Join-Path $env:TEMP $Name
 
 
     Write-Host ""
-    Write-Host "Downloading F-Droid..." -ForegroundColor Cyan
+    Write-Host "Downloading $Name..." -ForegroundColor Cyan
 
 
     Invoke-WebRequest `
-        -Uri $Config."F-DroidUrl" `
+        -Uri $Url `
         -OutFile $Target
 
 
 
-    $Adb = Get-AdbPath
+    Install-DownloadedApk $Target
 
 
-    & $Adb install -r "$Target"
-
-
-
-    Remove-Item $Target -Force
-
-
-    Cleanup-InstallFiles
-
-
-    Write-Host ""
-    Write-Host "F-Droid installed." -ForegroundColor Green
+    Remove-Item $Target -Force -ErrorAction SilentlyContinue
 }
 
 
 
-function Install-ViewAssist {
+function Update-GithubApp {
 
-
-    $Config = Get-Config
+    param(
+        [string]$Name,
+        [string]$Package,
+        [string]$ApiUrl
+    )
 
 
     Write-Host ""
-    Write-Host "Checking latest ViewAssist release..." -ForegroundColor Cyan
+    Write-Host "Checking $Name..." -ForegroundColor Cyan
 
 
-    $Release =
-        Invoke-RestMethod `
-        -Uri $Config.ViewAssist.GitHubApi `
+
+    $Release = Invoke-RestMethod `
+        -Uri $ApiUrl `
         -Headers @{
             "User-Agent"="EchoShowToolkit"
         }
 
 
 
-    $APK =
+    $Asset =
         $Release.assets |
         Where-Object {
-            $_.name -like "*.apk"
+            $_.name -match "\.apk$"
         } |
         Select-Object -First 1
 
 
 
-    if (-not $APK) {
+    if (-not $Asset) {
 
         Write-Host "No APK found." -ForegroundColor Red
         return
@@ -165,62 +183,83 @@ function Install-ViewAssist {
 
 
 
-    Write-Host ""
-    Write-Host "Latest version:"
-    Write-Host $APK.name
+    $Latest = $Release.tag_name.TrimStart("v")
 
 
-
-    $Target =
-        Join-Path $env:TEMP $APK.name
+    $Installed = Get-InstalledVersion $Package
 
 
 
     Write-Host ""
-    Write-Host "Downloading..."
+    Write-Host "Installed:"
+    Write-Host ($Installed ?? "Not installed")
+
+    Write-Host ""
+    Write-Host "Available:"
+    Write-Host $Latest
 
 
-    Invoke-WebRequest `
-        -Uri $APK.browser_download_url `
-        -OutFile $Target
 
+    if ($Installed) {
 
+        if (-not (Compare-AppVersion $Installed $Latest)) {
 
-    $Adb = Get-AdbPath
+            Write-Host ""
+            Write-Host "Already up to date." -ForegroundColor Green
+            return
+        }
+    }
+
 
 
     Write-Host ""
-    Write-Host "Installing ViewAssist..."
+
+    $Confirm =
+        Read-Host "Install/update $Name? (Y/N)"
 
 
-    & $Adb install -r "$Target"
+
+    if ($Confirm -notmatch "^[Yy]$") {
+
+        return
+    }
 
 
 
-    Remove-Item $Target -Force
-
-
-    Cleanup-InstallFiles
-
-
-    Write-Host ""
-    Write-Host "ViewAssist update complete." -ForegroundColor Green
+    Download-And-Install `
+        -Url $Asset.browser_download_url `
+        -Name $Asset.name
 }
 
 
 
-function Test-PackageInstalled {
-
-    param(
-        [string]$Package
-    )
+function Install-FDroid {
 
 
-    $Result =
-        Invoke-Adb "shell pm list packages $Package"
+    $Config = Get-ToolkitConfig
 
 
-    return $Result -match $Package
+    Update-GithubApp `
+        -Name "F-Droid" `
+        -Package "org.fdroid.fdroid" `
+        -ApiUrl "https://f-droid.org/api/v1/releases"
+
+
+
+}
+
+
+
+function Install-ViewAssist {
+
+
+    $Config = Get-ToolkitConfig
+
+
+    Update-GithubApp `
+        -Name "ViewAssist" `
+        -Package "com.viewassist" `
+        -ApiUrl $Config.ViewAssist.GitHubApi
 }
 
 
@@ -228,62 +267,90 @@ function Test-PackageInstalled {
 function Install-HomeAssistant {
 
 
-    $Config = Get-Config
+    $Config = Get-ToolkitConfig
 
 
-    $Package =
-        $Config.HomeAssistant.PackageName
-
-
-
-    Write-Host ""
-    Write-Host "Home Assistant" -ForegroundColor Cyan
+    Update-GithubApp `
+        -Name "Home Assistant Companion" `
+        -Package $Config.HomeAssistant.PackageName `
+        -ApiUrl $Config.HomeAssistant.GitHubApi
+}
 
 
 
-    if (Test-PackageInstalled $Package) {
+function Show-AppMenu {
+
+
+    while ($true) {
+
 
         Write-Host ""
-        Write-Host "Home Assistant is already installed." -ForegroundColor Green
+        Write-Host "=============================="
+        Write-Host " Apps"
+        Write-Host "=============================="
+
+        Write-Host ""
+        Write-Host "1 - Home Assistant Companion"
+        Write-Host "2 - ViewAssist"
+        Write-Host "3 - F-Droid"
+        Write-Host "4 - Custom APK"
+        Write-Host "0 - Back"
+        Write-Host ""
+
+
+        $Choice = Read-Host "Select"
+
+
+
+        switch ($Choice) {
+
+
+            "1" {
+
+                Install-HomeAssistant
+            }
+
+
+            "2" {
+
+                Install-ViewAssist
+            }
+
+
+            "3" {
+
+                Install-FDroid
+            }
+
+
+            "4" {
+
+                Install-Apk
+            }
+
+
+            "0" {
+
+                break
+            }
+        }
+    }
+}
+
+
+
+function Install-Apk {
+
+
+    $File = Read-Host "APK path"
+
+
+    if (Test-Path $File) {
+
+        Install-DownloadedApk $File
     }
     else {
 
-
-        Write-Host ""
-        Write-Host "Home Assistant is not installed."
-        Write-Host ""
-
-        Write-Host "Recommended installation:"
-        Write-Host "1. Install F-Droid"
-        Write-Host "2. Search for Home Assistant"
-        Write-Host "3. Install the Companion App"
-        Write-Host ""
-
-
-        $FDroid =
-            Read-Host "Install F-Droid now? (Y/N)"
-
-
-        if ($FDroid -match "^[Yy]$") {
-
-            Install-FDroid
-        }
-
-
-        Write-Host ""
-        Write-Host "After installing Home Assistant, run:"
-        Write-Host "Home Assistant Tweaks from the menu."
-        Write-Host ""
+        Write-Host "File not found." -ForegroundColor Red
     }
-
-
-    $Tweaks =
-        Read-Host "Apply Home Assistant tweaks now? (Y/N)"
-
-
-    if ($Tweaks -match "^[Yy]$") {
-
-        Apply-HomeAssistantTweaks
-    }
-
 }
