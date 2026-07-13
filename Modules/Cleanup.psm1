@@ -1,44 +1,113 @@
-function Cleanup-Downloads {
+function Cleanup-DeviceFiles {
+
 
     Write-Host ""
-    Write-Host "Checking /sdcard/Download..." -ForegroundColor Cyan
+    Write-Host "Checking device download folder..." -ForegroundColor Cyan
+    Write-Host ""
 
-    $Files = Invoke-Adb "shell ls -lh /sdcard/Download"
+
+
+    $Files =
+        Invoke-Adb "shell ls -lh /sdcard/Download"
+
+
 
     if (-not $Files) {
+
         Write-Host "No files found."
         return
     }
 
-    Write-Host ""
-    Write-Host "Files:"
+
+
     Write-Host $Files
 
+
+
     Write-Host ""
 
-    $Answer = Read-Host "Delete APK and BIN files? (Y/N)"
+    $Answer =
+        Read-Host "Delete APK and BIN files from Echo? (Y/N)"
+
+
 
     if ($Answer -notmatch "^[Yy]$") {
-        Write-Host "Skipped."
+
         return
     }
 
 
+
     Invoke-Adb "shell rm /sdcard/Download/*.apk"
+
     Invoke-Adb "shell rm /sdcard/Download/*.bin"
 
 
-    Write-Host ""
-    Write-Host "Cleanup completed." -ForegroundColor Green
-
 
     Write-Host ""
-    $Trim = Read-Host "Run Android cache cleanup? (Y/N)"
+    Write-Host "Device cleanup complete." -ForegroundColor Green
+}
 
-    if ($Trim -match "^[Yy]$") {
 
-        Invoke-Adb "shell pm trim-caches 2G"
 
-        Write-Host "Cache cleanup finished." -ForegroundColor Green
+function Clear-AndroidCache {
+
+
+    Write-Host ""
+    Write-Host "Cleaning Android cache..." -ForegroundColor Cyan
+
+
+
+    Invoke-Adb "shell pm trim-caches 2G"
+
+
+
+    Write-Host ""
+    Write-Host "Cache cleanup finished." -ForegroundColor Green
+}
+
+
+
+function Cleanup-LocalTemp {
+
+
+    Write-Host ""
+    Write-Host "Cleaning local temporary APK files..." -ForegroundColor Cyan
+
+
+
+    $Files = @(
+        "$env:TEMP\*.apk",
+        "$env:TEMP\*.bin"
+    )
+
+
+
+    foreach ($File in $Files) {
+
+
+        Get-ChildItem `
+            -Path $File `
+            -ErrorAction SilentlyContinue |
+        Remove-Item `
+            -Force `
+            -ErrorAction SilentlyContinue
     }
+
+
+
+    Write-Host ""
+    Write-Host "Local cleanup finished." -ForegroundColor Green
+}
+
+
+
+function Full-Cleanup {
+
+
+    Cleanup-DeviceFiles
+
+    Clear-AndroidCache
+
+    Cleanup-LocalTemp
 }
