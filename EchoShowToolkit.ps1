@@ -1,134 +1,173 @@
 <#
 .SYNOPSIS
-    Amazon Echo Show LineageOS Toolkit
+    EchoShowToolkit
 
 .DESCRIPTION
-    Helper script for managing Echo Show devices running LineageOS.
-    Supports:
-    - ADB USB/WiFi connection
-    - Device information
-    - Storage cleanup
-    - APK installation
-    - F-Droid installation
-    - ViewAssist installation
-    - LineageOS/Home Assistant tweaks
+    Toolkit for Amazon Echo Show devices running LineageOS.
+
+    Features:
+    - ADB USB/WiFi
+    - Device detection
+    - App install/update
+    - F-Droid
+    - Home Assistant Companion
+    - ViewAssist
+    - LineageOS helper
+    - Tweaks
 #>
 
-$RootPath = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+$Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+
 
 $Modules = @(
     "Adb.psm1",
     "Device.psm1",
-    "Installer.psm1",
     "Cleanup.psm1",
-    "Tweaks.psm1",
-    "Lineage.psm1"
+    "AppInstaller.psm1",
+    "Lineage.psm1",
+    "Tweaks.psm1"
 )
 
+
 foreach ($Module in $Modules) {
-    Import-Module "$RootPath\Modules\$Module" -Force
+
+    Import-Module "$Root\Modules\$Module" -Force
 }
+
+
 
 Clear-Host
 
+
 Write-Host "==============================================" -ForegroundColor Cyan
-Write-Host " Echo Show LineageOS Toolkit" -ForegroundColor Cyan
-Write-Host "==============================================" -ForegroundColor Cyan
+Write-Host " EchoShowToolkit"
+Write-Host " LineageOS Echo Show Manager"
+Write-Host "=============================================="
 Write-Host ""
+
+
 
 Initialize-Adb
 
-$Device = Get-EchoDevice
 
-if (-not $Device) {
+
+if (-not (Get-EchoDevice)) {
+
     Write-Host ""
-    Write-Host "No device connected." -ForegroundColor Red
-    Pause
+    Write-Host "No Echo Show detected." -ForegroundColor Red
+    Read-Host "Press ENTER"
     exit
 }
 
-Show-DeviceInfo $Device
+
+
+Show-DeviceInfo
+
 
 
 while ($true) {
 
+
     Write-Host ""
     Write-Host "==============================================" -ForegroundColor Cyan
     Write-Host " MENU"
-    Write-Host "==============================================" -ForegroundColor Cyan
+    Write-Host "=============================================="
 
-    Write-Host "1 - Check storage"
-    Write-Host "2 - Cleanup old APK/BIN files"
-    Write-Host "3 - Install APK"
-    Write-Host "4 - Install F-Droid"
-    Write-Host "5 - Install ViewAssist"
-    Write-Host "6 - Install Home Assistant"
-    Write-Host "7 - Apply LineageOS Tweaks"
-    Write-Host "8 - Apply Home Assistant Tweaks"
-    Write-Host "9 - Apply Screen/Doze Tweaks"
-    Write-Host "10 - Reconnect ADB WiFi"
-    Write-Host "11 - Open LineageOS download page"
-    Write-Host "12 - Push LineageOS ZIP to device"
-    Write-Host "Q - Exit"
+    Write-Host ""
+    Write-Host "1  Device information"
+    Write-Host "2  Storage check"
+    Write-Host "3  Cleanup APK/BIN files"
+    Write-Host ""
+    Write-Host "4  Install / Update Apps"
+    Write-Host ""
+    Write-Host "5  LineageOS helper"
+    Write-Host ""
+    Write-Host "6  LineageOS tweaks"
+    Write-Host "7  Home Assistant tweaks"
+    Write-Host "8  Screen / Doze tweaks"
+    Write-Host ""
+    Write-Host "9  ADB WiFi setup"
+    Write-Host ""
+    Write-Host "Q  Exit"
+    Write-Host ""
+
 
     $Choice = Read-Host "Select"
 
+
+
     switch ($Choice) {
 
+
         "1" {
+
+            Show-DeviceInfo
+        }
+
+
+        "2" {
+
             Get-DeviceStorage
         }
 
-        "2" {
-            Cleanup-Downloads
-        }
 
         "3" {
-            Install-Apk
+
+            Cleanup-DeviceFiles
         }
+
 
         "4" {
-            Install-FDroid
+
+            Show-AppMenu
         }
+
 
         "5" {
-            Install-ViewAssist
+
+            Show-LineageMenu
         }
+
 
         "6" {
-            Install-HomeAssistant
-        }
 
-        "7" {
             Apply-LineageTweaks
         }
 
-        "8" {
+
+        "7" {
+
             Apply-HomeAssistantTweaks
         }
 
-        "9" {
+
+        "8" {
+
             Apply-ScreenTweaks
         }
 
-        "10" {
+
+        "9" {
+
             Connect-AdbWifi
         }
 
-        "11" {
-            Open-LineageDownloadPage
-        }
 
+        "q" {
 
-        "12" {
-            Push-LineageZip
-        }
-
-        "Q" {
             break
         }
 
+
+        "Q" {
+
+            break
+        }
+
+
         default {
+
             Write-Host "Invalid selection" -ForegroundColor Yellow
         }
     }
