@@ -48,7 +48,11 @@ function Cleanup-DeviceFiles {
     Write-Host "Device cleanup complete." -ForegroundColor Green
 }
 
+function Cleanup-DeviceFilesAuto {
+    Invoke-Adb "shell rm -f /sdcard/Download/*.apk"
 
+    Invoke-Adb "shell rm -f /sdcard/Download/*.bin"
+}
 
 function Clear-AndroidCache {
 
