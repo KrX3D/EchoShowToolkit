@@ -91,7 +91,7 @@ function Install-DownloadedApk {
 
         Write-Host "Installation successful." -ForegroundColor Green
 
-        Cleanup-DeviceFiles
+        Cleanup-DeviceFilesAuto
 
         return $true
     }
@@ -209,49 +209,80 @@ function Update-GithubApp {
             return
         }
     }
-
-
-
     Write-Host ""
-
-    $Confirm =
-        Read-Host "Install/update $Name? (Y/N)"
-
-
-
-    if ($Confirm -notmatch "^[Yy]$") {
-
-        return
-    }
-
-
+    Write-Host "Installing/updating $Name automatically..." -ForegroundColor Cyan
 
     Download-And-Install `
         -Url $Asset.browser_download_url `
         -Name $Asset.name
 }
 
-
-
 function Install-FDroid {
 
 
     $Config = Get-ToolkitConfig
 
-
-    Update-GithubApp `
-        -Name "F-Droid" `
-        -Package "org.fdroid.fdroid" `
-        -ApiUrl "https://f-droid.org/api/v1/releases"
+    $Package = $Config.FDroid.PackageName
 
 
+    Write-Host ""
+    Write-Host "Checking F-Droid..." -ForegroundColor Cyan
 
+
+    $Info = Invoke-RestMethod `
+        -Uri $Config.FDroid.PackageApi `
+        -Headers @{
+            "User-Agent"="EchoShowToolkit"
+        }
+
+
+    $Latest = $Info.suggestedVersionName
+
+    if (-not $Latest) {
+
+        $Latest =
+            ($Info.packages |
+            Where-Object { $_.versionCode -eq $Info.suggestedVersionCode } |
+            Select-Object -First 1).versionName
+    }
+
+
+    $Installed = Get-InstalledVersion $Package
+
+
+    Write-Host ""
+    Write-Host "Installed:"
+    Write-Host ($Installed ?? "Not installed")
+
+    Write-Host ""
+    Write-Host "Available:"
+    Write-Host ($Latest ?? "Unknown")
+
+
+    if ($Installed -and $Latest) {
+
+        if (-not (Compare-AppVersion $Installed $Latest)) {
+
+            Write-Host ""
+            Write-Host "Already up to date." -ForegroundColor Green
+            return
+        }
+
+        Write-Host ""
+        Write-Host "A newer version is available." -ForegroundColor Yellow
+    }
+
+
+    Write-Host ""
+    Write-Host "Installing/updating F-Droid automatically..." -ForegroundColor Cyan
+
+
+    Download-And-Install `
+        -Url $Config.FDroid.DownloadUrl `
+        -Name "F-Droid.apk"
 }
 
-
-
 function Install-ViewAssist {
-
 
     $Config = Get-ToolkitConfig
 
